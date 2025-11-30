@@ -1,7 +1,7 @@
 from flask import Flask, jsonify, request
 import mysql.connector
 from mysql.connector import Error
-
+from helpers import format_response
 app = Flask(__name__)
 
 DB_CONFIG = {
@@ -63,7 +63,7 @@ def get_products():
         
         cursor.close()
         connection.close()
-        return jsonify(products)
+        return format_response(app, products)
     except Error as e:
         return jsonify({"error": str(e)}), 500
 
@@ -93,7 +93,8 @@ def get_product(id):
             'price': float(row[3]),
             'stocks': row[4]
         }
-        return jsonify(product)
+        
+        return format_response(app, product)
     except Error as e:
         return jsonify({"error": str(e)}), 500
 
@@ -127,14 +128,16 @@ def create_product():
         cursor.close()
         connection.close()
         
-        return jsonify({
+        new_product = {
             'id': new_id,
             'name': name,
             'description': description,
             'price': price,
             'stocks': stocks,
             'message': 'Product created successfully'
-        }), 201
+        }
+        
+        return format_response(app, new_product, 201)
     except Error as e:
         return jsonify({"error": str(e)}), 500
 
@@ -192,14 +195,16 @@ def update_product(id):
         cursor.close()
         connection.close()
         
-        return jsonify({
+        updated_product = {
             'id': row[0],
             'name': row[1],
             'description': row[2],
             'price': float(row[3]),
             'stocks': row[4],
             'message': 'Product updated successfully'
-        })
+        }
+        
+        return format_response(app, updated_product)
     except Error as e:
         return jsonify({"error": str(e)}), 500
 
@@ -226,10 +231,12 @@ def delete_product(id):
         cursor.close()
         connection.close()
         
-        return jsonify({
+        delete_product = {
             "message": "Product deleted successfully",
             "id": id
-        })
+        }
+        
+        return format_response(app, delete_product)
     except Error as e:
         return jsonify({"error": str(e)}), 500
 
