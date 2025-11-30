@@ -204,5 +204,35 @@ def update_product(id):
         return jsonify({"error": str(e)}), 500
 
 
+@app.route('/api/products/<int:id>', methods=['DELETE'])
+def delete_product(id):
+    # Delete a product by ID.
+    connection = get_db_connection()
+    if not connection:
+        return jsonify({"error": "Database connection failed"}), 500
+    
+    try:
+        cursor = connection.cursor()
+        cursor.execute("SELECT * FROM products WHERE id = %s", (id,))
+        existing_product = cursor.fetchone()
+        
+        if existing_product is None:
+            cursor.close()
+            connection.close()
+            return jsonify({"error": "Product not found"}), 404
+        
+        cursor.execute("DELETE FROM products WHERE id = %s", (id,))
+        connection.commit()
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            "message": "Product deleted successfully",
+            "id": id
+        })
+    except Error as e:
+        return jsonify({"error": str(e)}), 500
+
+
 if __name__ == "__main__":
     app.run(debug=True)
