@@ -139,5 +139,70 @@ def create_product():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route('/api/products/<int:id>', methods=['PUT'])
+def update_product(id):
+    # Update an existing product.
+    connection = get_db_connection()
+    if not connection:
+        return jsonify({"error": "Database connection failed"}), 500
+    
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        
+        cursor = connection.cursor()
+        cursor.execute("SELECT * FROM products WHERE id = %s", (id,))
+        existing_product = cursor.fetchone()
+        
+        if existing_product is None:
+            cursor.close()
+            connection.close()
+            return jsonify({"error": "Product not found"}), 404
+        
+        update_fields = []
+        update_values = []
+        
+        if 'name' in data:
+            update_fields.append("name = %s")
+            update_values.append(data['name'])
+        if 'description' in data:
+            update_fields.append("description = %s")
+            update_values.append(data['description'])
+        if 'price' in data:
+            update_fields.append("price = %s")
+            update_values.append(data['price'])
+        if 'stocks' in data:
+            update_fields.append("stocks = %s")
+            update_values.append(data['stocks'])
+        
+        if not update_fields:
+            cursor.close()
+            connection.close()
+            return jsonify({"error": "No valid fields to update"}), 400
+        
+        update_values.append(id)
+        update_query = f"UPDATE products SET {', '.join(update_fields)} WHERE id = %s"
+        cursor.execute(update_query, tuple(update_values))
+        connection.commit()
+        
+        cursor.execute("SELECT * FROM products WHERE id = %s", (id,))
+        row = cursor.fetchone()
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'id': row[0],
+            'name': row[1],
+            'description': row[2],
+            'price': float(row[3]),
+            'stocks': row[4],
+            'message': 'Product updated successfully'
+        })
+    except Error as e:
+        return jsonify({"error": str(e)}), 500
+
+
 if __name__ == "__main__":
     app.run(debug=True)
