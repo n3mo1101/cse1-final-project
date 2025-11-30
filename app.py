@@ -1,7 +1,7 @@
 from flask import Flask, jsonify, request
 import mysql.connector
 from mysql.connector import Error
-from helpers import format_response
+from helpers import format_response, validate_data
 app = Flask(__name__)
 
 DB_CONFIG = {
@@ -43,7 +43,7 @@ def get_products():
     # Get all products.
     connection = get_db_connection()
     if not connection:
-        return jsonify({"error": "Database connection failed"}), 500
+        return format_response(app, {"error": "Database connection failed"}, 500)
     
     try:
         cursor = connection.cursor()
@@ -65,7 +65,7 @@ def get_products():
         connection.close()
         return format_response(app, products)
     except Error as e:
-        return jsonify({"error": str(e)}), 500
+        return format_response(app, {"error": str(e)}, 500)
 
 
 @app.route('/api/products/<int:id>', methods=['GET'])
@@ -73,7 +73,7 @@ def get_product(id):
     # Get a single product by ID.
     connection = get_db_connection()
     if not connection:
-        return jsonify({"error": "Database connection failed"}), 500
+        return format_response(app, {"error": "Database connection failed"}, 500)
     
     try:
         cursor = connection.cursor()
@@ -96,7 +96,7 @@ def get_product(id):
         
         return format_response(app, product)
     except Error as e:
-        return jsonify({"error": str(e)}), 500
+        return format_response(app, {"error": str(e)}, 500)
 
 
 @app.route('/api/products', methods=['POST'])
@@ -104,18 +104,22 @@ def create_product():
     # Create a new product.
     connection = get_db_connection()
     if not connection:
-        return jsonify({"error": "Database connection failed"}), 500
+        return format_response(app, {"error": "Database connection failed"}, 500)
     
     try:
         data = request.get_json()
         
         if not data:
-            return jsonify({"error": "No data provided"}), 400
+            return format_response(app, {"error": "No data provided"}, 400)
         
-        name = data.get('name')
+        is_valid, error_message = validate_data(data)
+        if not is_valid:
+            return format_response(app, {"error": error_message}, 400)
+        
+        name = data['name'].strip()
         description = data.get('description', None)
-        price = data.get('price')
-        stocks = data.get('stocks', 0)
+        price = float(data['price'])
+        stocks = int(data.get('stocks', 0))
         
         cursor = connection.cursor()
         cursor.execute(
@@ -139,7 +143,7 @@ def create_product():
         
         return format_response(app, new_product, 201)
     except Error as e:
-        return jsonify({"error": str(e)}), 500
+        return format_response(app, {"error": str(e)}, 500)
 
 
 @app.route('/api/products/<int:id>', methods=['PUT'])
@@ -147,13 +151,18 @@ def update_product(id):
     # Update an existing product.
     connection = get_db_connection()
     if not connection:
-        return jsonify({"error": "Database connection failed"}), 500
+        return format_response(app, {"error": "Database connection failed"}, 500)
     
     try:
         data = request.get_json()
         
         if not data:
-            return jsonify({"error": "No data provided"}), 400
+            return format_response(app, {"error": "No data provided"}, 400)
+
+        is_valid, error_message = validate_data(data, is_update=True)
+        if not is_valid:
+            connection.close()
+            return format_response(app, {"error": error_message}, 400)
         
         cursor = connection.cursor()
         cursor.execute("SELECT * FROM products WHERE id = %s", (id,))
@@ -162,8 +171,8 @@ def update_product(id):
         if existing_product is None:
             cursor.close()
             connection.close()
-            return jsonify({"error": "Product not found"}), 404
-        
+            return format_response(app, {"error": "Product not found"}, 404)
+
         update_fields = []
         update_values = []
         
@@ -183,7 +192,7 @@ def update_product(id):
         if not update_fields:
             cursor.close()
             connection.close()
-            return jsonify({"error": "No valid fields to update"}), 400
+            return format_response(app, {"error": "No valid fields to update"}, 400)
         
         update_values.append(id)
         update_query = f"UPDATE products SET {', '.join(update_fields)} WHERE id = %s"
@@ -206,7 +215,7 @@ def update_product(id):
         
         return format_response(app, updated_product)
     except Error as e:
-        return jsonify({"error": str(e)}), 500
+        return format_response(app, {"error": str(e)}, 500)
 
 
 @app.route('/api/products/<int:id>', methods=['DELETE'])
@@ -214,7 +223,8 @@ def delete_product(id):
     # Delete a product by ID.
     connection = get_db_connection()
     if not connection:
-        return jsonify({"error": "Database connection failed"}), 500
+        return format_response(app, {"error": "Database connection failed"}, 500)
+
     
     try:
         cursor = connection.cursor()
@@ -224,8 +234,8 @@ def delete_product(id):
         if existing_product is None:
             cursor.close()
             connection.close()
-            return jsonify({"error": "Product not found"}), 404
-        
+            return format_response(app, {"error": "Product not found"}, 404)
+
         cursor.execute("DELETE FROM products WHERE id = %s", (id,))
         connection.commit()
         cursor.close()
@@ -238,7 +248,7 @@ def delete_product(id):
         
         return format_response(app, delete_product)
     except Error as e:
-        return jsonify({"error": str(e)}), 500
+        return format_response(app, {"error": str(e)}, 500)
 
 
 if __name__ == "__main__":
