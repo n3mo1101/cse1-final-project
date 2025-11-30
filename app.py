@@ -1,4 +1,4 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 import mysql.connector
 from mysql.connector import Error
 
@@ -94,6 +94,47 @@ def get_product(id):
             'stocks': row[4]
         }
         return jsonify(product)
+    except Error as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/products', methods=['POST'])
+def create_product():
+    # Create a new product.
+    connection = get_db_connection()
+    if not connection:
+        return jsonify({"error": "Database connection failed"}), 500
+    
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        
+        name = data.get('name')
+        description = data.get('description', None)
+        price = data.get('price')
+        stocks = data.get('stocks', 0)
+        
+        cursor = connection.cursor()
+        cursor.execute(
+            "INSERT INTO products (name, description, price, stocks) VALUES (%s, %s, %s, %s)",
+            (name, description, price, stocks)
+        )
+        connection.commit()
+        
+        new_id = cursor.lastrowid
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'id': new_id,
+            'name': name,
+            'description': description,
+            'price': price,
+            'stocks': stocks,
+            'message': 'Product created successfully'
+        }), 201
     except Error as e:
         return jsonify({"error": str(e)}), 500
 
