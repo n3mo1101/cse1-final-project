@@ -1,6 +1,10 @@
 import xml.etree.ElementTree as ET
 from flask import request, jsonify
 
+import jwt
+from datetime import datetime, timedelta
+from functools import wraps
+
 def dict_to_xml(data, root_name="response"):
     # Convert dictionary or list to XML format.
     root = ET.Element(root_name)
@@ -73,3 +77,72 @@ def validate_data(data, is_update=False):
             return False, "Stocks must be a valid integer"
     
     return True, None
+
+
+# ================ JWT Authentication Helpers ================
+
+# JWT Configuration
+SECRET_KEY = "###"
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRATION_HOURS = 1
+
+# Hardcoded user for demonstration purposes
+USERS = {
+    "admin": "admin123"
+}
+
+
+def generate_token(username):
+    # Generate a JWT token for authenticated user.
+    payload = {
+        'username': username,
+        'exp': datetime.utcnow() + timedelta(hours=JWT_EXPIRATION_HOURS),
+        'iat': datetime.utcnow()
+    }
+    
+    token = jwt.encode(payload, SECRET_KEY, algorithm=JWT_ALGORITHM)
+    return token
+
+
+def verify_token(token):
+    # Verify and decode a JWT token.
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        return payload
+    except jwt.ExpiredSignatureError:
+        return None
+    except jwt.InvalidTokenError:
+        return None
+
+
+def authenticate_user(username, password):
+    # Authenticate user with username and password.
+    return USERS.get(username) == password
+
+
+def token_required(f):
+    # Decorator to protect routes with JWT authentication.
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = None
+        
+        # Get token from Authorization header
+        if 'Authorization' in request.headers:
+            auth_header = request.headers['Authorization']
+            try:
+                token = auth_header.split(" ")[1]
+            except IndexError:
+                return jsonify({"error": "Invalid token format. Use: Bearer "}), 401
+        
+        if not token:
+            return jsonify({"error": "Authentication token is missing"}), 401
+        
+        # Verify token
+        payload = verify_token(token)
+        if payload is None:
+            return jsonify({"error": "Invalid or expired token"}), 401
+        
+        # Token is valid, proceed with the route
+        return f(*args, **kwargs)
+    
+    return decorated

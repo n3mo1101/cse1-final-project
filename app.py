@@ -1,7 +1,9 @@
 from flask import Flask, jsonify, request
 import mysql.connector
 from mysql.connector import Error
-from helpers import format_response, validate_data
+from helpers import format_response, validate_data, generate_token, authenticate_user, token_required
+
+
 app = Flask(__name__)
 
 DB_CONFIG = {
@@ -37,6 +39,32 @@ def home():
             "DELETE /api/products/": "Delete product"
         }
     })
+
+
+@app.route('/api/auth/login', methods=['POST'])
+def login():
+    # Authenticate user and return JWT token.
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({"error": "No credentials provided"}), 400
+    
+    username = data.get('username')
+    password = data.get('password')
+    
+    if not username or not password:
+        return jsonify({"error": "Username and password are required"}), 400
+    
+    if authenticate_user(username, password):
+        token = generate_token(username)
+        
+        return jsonify({
+            "message": "Login successful",
+            "token": token,
+            "expires_in": "1 hour"
+        }), 200
+    else:
+        return jsonify({"error": "Invalid username or password"}), 401
 
 
 @app.route('/api/products', methods=['GET'])
@@ -142,6 +170,7 @@ def search_products():
 
 
 @app.route('/api/products', methods=['POST'])
+@token_required
 def create_product():
     # Create a new product.
     connection = get_db_connection()
@@ -189,6 +218,7 @@ def create_product():
 
 
 @app.route('/api/products/<int:id>', methods=['PUT'])
+@token_required
 def update_product(id):
     # Update an existing product.
     connection = get_db_connection()
@@ -261,6 +291,7 @@ def update_product(id):
 
 
 @app.route('/api/products/<int:id>', methods=['DELETE'])
+@token_required
 def delete_product(id):
     # Delete a product by ID.
     connection = get_db_connection()
