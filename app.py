@@ -31,6 +31,7 @@ def home():
         "endpoints": {
             "GET /api/products": "Get all products",
             "GET /api/products/": "Get product by ID",
+            "GET /api/products/search?name=keyword": "Search products by name",
             "POST /api/products": "Create new product",
             "PUT /api/products/": "Update product",
             "DELETE /api/products/": "Delete product"
@@ -95,6 +96,47 @@ def get_product(id):
         }
         
         return format_response(app, product)
+    except Error as e:
+        return format_response(app, {"error": str(e)}, 500)
+
+
+@app.route('/api/products/search', methods=['GET'])
+def search_products():
+    # Search for products by name in query.
+    search_name = request.args.get('name', '').strip()
+    
+    if not search_name:
+        return format_response(app, {"error": "Search parameter 'name' is required"}, 400)
+    
+    connection = get_db_connection()
+    if not connection:
+        return format_response(app, {"error": "Database connection failed"}, 500)
+    
+    try:
+        cursor = connection.cursor()
+        search_pattern = f"%{search_name.lower()}%"
+        cursor.execute(
+            "SELECT * FROM products WHERE LOWER(name) LIKE %s",
+            (search_pattern,)
+        )
+        
+        rows = cursor.fetchall()
+        
+        products = []
+        for row in rows:
+            product = {
+                'id': row[0],
+                'name': row[1],
+                'description': row[2],
+                'price': float(row[3]),
+                'stocks': row[4]
+            }
+            products.append(product)
+        
+        cursor.close()
+        connection.close()
+        
+        return format_response(app, products)
     except Error as e:
         return format_response(app, {"error": str(e)}, 500)
 
