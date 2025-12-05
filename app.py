@@ -31,12 +31,18 @@ def home():
         "message": "CRUD API for Products",
         "version": "1.0",
         "endpoints": {
+            "POST /api/auth/login": "Login and get JWT token",
             "GET /api/products": "Get all products",
             "GET /api/products/": "Get product by ID",
             "GET /api/products/search?name=keyword": "Search products by name",
             "POST /api/products": "Create new product",
             "PUT /api/products/": "Update product",
             "DELETE /api/products/": "Delete product"
+        },
+        "authentication": {
+            "test_username": "admin",
+            "test_password": "admin123",
+            "token_format": "Authorization: Bearer <token>"
         }
     })
 

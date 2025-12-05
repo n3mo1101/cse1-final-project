@@ -5,6 +5,8 @@ import jwt
 from datetime import datetime, timedelta
 from functools import wraps
 
+# ================ Formatting and Validation ================
+
 def dict_to_xml(data, root_name="response"):
     # Convert dictionary or list to XML format.
     root = ET.Element(root_name)
@@ -79,12 +81,12 @@ def validate_data(data, is_update=False):
     return True, None
 
 
-# ================ JWT Authentication Helpers ================
+# ================ JWT Authentication ================
 
 # JWT Configuration
 SECRET_KEY = "###"
 JWT_ALGORITHM = "HS256"
-JWT_EXPIRATION_HOURS = 1
+JWT_EXPIRATION_HOURS = 24
 
 # Hardcoded user for demonstration purposes
 USERS = {
